@@ -87,11 +87,11 @@ jobs:
             ghcr.io/zaproxy/zaproxy:stable \
             zap-baseline.py \
             -t http://zap-demo-app:3000 \
+            -I \
             -c /zap/wrk/zap-baseline.conf \
             -r /zap/wrk/reports/zap-report.html \
             -J /zap/wrk/reports/zap-report.json \
             -w /zap/wrk/reports/zap-report.md
-            -I
 
       - name: Upload ZAP reports
         if: always()
