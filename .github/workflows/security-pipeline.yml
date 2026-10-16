@@ -91,6 +91,7 @@ jobs:
             -r /zap/wrk/reports/zap-report.html \
             -J /zap/wrk/reports/zap-report.json \
             -w /zap/wrk/reports/zap-report.md
+            -I
 
       - name: Upload ZAP reports
         if: always()
