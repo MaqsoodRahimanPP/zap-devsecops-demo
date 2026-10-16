@@ -1,0 +1,112 @@
+name: Dummy App DevSecOps Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: zap-demo-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-scan:
+    name: Build, Test and ZAP Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit and smoke tests
+        run: npm test
+
+      - name: Validate application syntax
+        run: npm run build
+
+      - name: Build Docker image
+        run: docker build -t zap-demo-app:${{ github.sha }} .
+
+      - name: Create isolated Docker network
+        run: docker network create zap-demo-net
+
+      - name: Start demo application
+        run: |
+          docker run -d \
+            --name zap-demo-app \
+            --network zap-demo-net \
+            zap-demo-app:${{ github.sha }}
+
+      - name: Wait for application readiness
+        run: |
+          for i in $(seq 1 30); do
+            if docker run --rm \
+              --network zap-demo-net \
+              curlimages/curl:latest \
+              --fail --silent \
+              http://zap-demo-app:3000/health; then
+              echo "Application is ready"
+              exit 0
+            fi
+            sleep 2
+          done
+
+          docker logs zap-demo-app
+          echo "Application did not become ready"
+          exit 1
+
+      - name: Create report directory
+        if: always()
+        run: mkdir -p reports
+
+      - name: Run OWASP ZAP Baseline Scan
+        id: zap_scan
+        run: |
+          docker run --rm \
+            --network zap-demo-net \
+            -v "$GITHUB_WORKSPACE:/zap/wrk/:rw" \
+            ghcr.io/zaproxy/zaproxy:stable \
+            zap-baseline.py \
+            -t http://zap-demo-app:3000 \
+            -c /zap/wrk/zap-baseline.conf \
+            -r /zap/wrk/reports/zap-report.html \
+            -J /zap/wrk/reports/zap-report.json \
+            -w /zap/wrk/reports/zap-report.md
+
+      - name: Upload ZAP reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-security-reports
+          path: reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Collect container logs
+        if: always()
+        run: docker logs zap-demo-app || true
+
+      - name: Clean up demo container
+        if: always()
+        run: |
+          docker rm -f zap-demo-app || true
+          docker network rm zap-demo-net || true

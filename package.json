@@ -1,0 +1,15 @@
+{
+  "name": "zap-devsecops-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local demo application for OWASP ZAP CI testing",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "node --test",
+    "build": "node --check app.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}
