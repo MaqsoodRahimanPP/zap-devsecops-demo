@@ -1,9 +1,25 @@
 const express = require("express");
+const helmet = require("helmet");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.disable("x-powered-by");
+app.use(helmet());
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, (character) => {
+    const entities = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;"
+    };
+
+    return entities[character];
+  });
+}
 
 app.get("/", (req, res) => {
   res.type("html").send(`
@@ -30,14 +46,16 @@ app.get("/", (req, res) => {
 app.get("/search", (req, res) => {
   const query = String(req.query.q || "");
 
-  // INTENTIONALLY VULNERABLE: never use this pattern in production.
   res.type("html").send(`
     <!doctype html>
     <html lang="en">
-      <head><title>Search Results</title></head>
+      <head>
+        <meta charset="utf-8">
+        <title>Search Results</title>
+      </head>
       <body>
         <h1>Search results</h1>
-        <p>You searched for: ${query}</p>
+        <p>You searched for: ${escapeHtml(query)}</p>
         <a href="/">Back</a>
       </body>
     </html>
