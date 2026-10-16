@@ -7,6 +7,14 @@ const PORT = process.env.PORT || 3000;
 app.disable("x-powered-by");
 app.use(helmet());
 
+app.use((req, res, next) => {
+  res.setHeader(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()"
+  );
+  next();
+});
+
 function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (character) => {
     const entities = {
